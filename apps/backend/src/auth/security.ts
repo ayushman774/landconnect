@@ -1,8 +1,14 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
-import { promisify } from 'node:util';
 import { SignJWT, jwtVerify } from 'jose';
 
-const scrypt = promisify(scryptCallback);
+function scrypt(password: string, salt: string, length: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scryptCallback(password, salt, length, { N: COST, r: BLOCK_SIZE, p: PARALLELIZATION }, (error, derivedKey) => {
+      if (error) reject(error);
+      else resolve(derivedKey);
+    });
+  });
+}
 const KEY_BYTES = 64;
 const COST = 16384;
 const BLOCK_SIZE = 8;
@@ -10,7 +16,7 @@ const PARALLELIZATION = 1;
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');
-  const hash = await scrypt(password, salt, KEY_BYTES, { N: COST, r: BLOCK_SIZE, p: PARALLELIZATION }) as Buffer;
+  const hash = await scrypt(password, salt, KEY_BYTES);
   return `scrypt:${salt}:${hash.toString('hex')}`;
 }
 
@@ -20,7 +26,7 @@ export async function verifyPassword(password: string, encoded: string): Promise
   const [, salt, hex] = parts;
   if (!salt || !hex || !/^[a-f0-9]{32}$/i.test(salt) || !/^[a-f0-9]{128}$/i.test(hex)) return false;
   const actual = Buffer.from(hex, 'hex');
-  const candidate = await scrypt(password, salt, KEY_BYTES, { N: COST, r: BLOCK_SIZE, p: PARALLELIZATION }) as Buffer;
+  const candidate = await scrypt(password, salt, KEY_BYTES);
   return timingSafeEqual(actual, candidate);
 }
 
