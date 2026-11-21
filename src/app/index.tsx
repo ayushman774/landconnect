@@ -59,7 +59,7 @@ export default function HomeScreen() {
           <Text style={styles.description} numberOfLines={3}>{item.description}</Text>
         </View>
       </View>}
-      ListEmptyComponent={loading ? <ActivityIndicator color={green} style={{ marginTop: 30 }} /> : !error ? <Text style={styles.empty}>No published properties yet. Sellers can add a listing from the List tab.</Text> : null}
+      ListEmptyComponent={loading ? <ActivityIndicator color={green} style={{ marginTop: 30 }} /> : !error ? <Text style={styles.empty}>No published properties yet. Sellers can add a listing from the List tab.</Text> : undefined}
     />
   </SafeAreaView>;
 }
