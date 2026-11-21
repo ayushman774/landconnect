@@ -11,7 +11,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:validate": "prisma validate",
-    "test": "tsx --test src/auth/*.test.ts"
+    "test": "tsx --test src/auth/*.test.ts src/properties/*.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

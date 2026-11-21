@@ -3,6 +3,7 @@ import express, { type ErrorRequestHandler } from 'express';
 import helmet from 'helmet';
 import { allowedOrigins } from './config.js';
 import { authRouter } from './auth/routes.js';
+import { propertyRouter } from './properties/routes.js';
 
 export const app = express();
 app.disable('x-powered-by');
@@ -20,6 +21,7 @@ app.get('/api/health', (_request, response) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/properties', propertyRouter);
 
 app.use('/api', (_request, response) => {
   response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found' } });
