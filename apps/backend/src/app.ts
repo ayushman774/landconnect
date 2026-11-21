@@ -2,6 +2,7 @@ import cors from 'cors';
 import express, { type ErrorRequestHandler } from 'express';
 import helmet from 'helmet';
 import { allowedOrigins } from './config.js';
+import { authRouter } from './auth/routes.js';
 
 export const app = express();
 app.disable('x-powered-by');
@@ -17,6 +18,8 @@ app.use(express.json({ limit: '1mb' }));
 app.get('/api/health', (_request, response) => {
   response.json({ status: 'ok', service: 'landconnect-api' });
 });
+
+app.use('/api/auth', authRouter);
 
 app.use('/api', (_request, response) => {
   response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found' } });
