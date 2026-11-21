@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:validate": "prisma validate"
+    "db:validate": "prisma validate",
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -18,7 +19,8 @@
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "helmet": "^8.1.0",
-    "zod": "^3.25.0"
+    "zod": "^3.25.0",
+    "jose": "^6.1.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
