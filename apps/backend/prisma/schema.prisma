@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  BUYER
+  SELLER
+  BROKER
+}
+
+enum PropertyType {
+  RESIDENTIAL
+  COMMERCIAL
+  AGRICULTURAL
+}
+
+enum PropertyStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CallType {
+  AUDIO
+  VIDEO
+}
+
+enum CallStatus {
+  RINGING
+  ACCEPTED
+  REJECTED
+  ENDED
+  MISSED
+}
+
+model User {
+  id               String       @id @default(uuid())
+  email            String       @unique
+  passwordHash     String
+  name             String
+  role             UserRole
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  properties       Property[]
+  sentMessages     Message[]
+  conversations    Participant[]
+  outgoingCalls    Call[]       @relation("Caller")
+  incomingCalls    Call[]       @relation("Callee")
+}
+
+model Property {
+  id          String         @id @default(uuid())
+  ownerId     String
+  owner       User           @relation(fields: [ownerId], references: [id])
+  title       String
+  description String
+  type        PropertyType
+  status      PropertyStatus @default(DRAFT)
+  pricePaise  BigInt
+  areaSqFt    Decimal        @db.Decimal(14, 2)
+  latitude    Decimal?       @db.Decimal(10, 7)
+  longitude   Decimal?       @db.Decimal(10, 7)
+  address     String
+  images      PropertyImage[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  @@index([type, status])
+  @@index([ownerId])
+}
+
+model PropertyImage {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  position   Int      @default(0)
+  @@index([propertyId, position])
+}
+
+model Conversation {
+  id           String        @id @default(uuid())
+  createdAt    DateTime      @default(now())
+  participants Participant[]
+  messages     Message[]
+  calls        Call[]
+}
+
+model Participant {
+  conversationId String
+  userId         String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id])
+  joinedAt       DateTime     @default(now())
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id])
+  body           String
+  createdAt      DateTime     @default(now())
+  @@index([conversationId, createdAt])
+}
+
+model Call {
+  id             String       @id @default(uuid())
+  conversationId String
+  callerId       String
+  calleeId       String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  caller         User         @relation("Caller", fields: [callerId], references: [id])
+  callee         User         @relation("Callee", fields: [calleeId], references: [id])
+  type           CallType
+  status         CallStatus   @default(RINGING)
+  roomName       String       @unique
+  createdAt      DateTime     @default(now())
+  answeredAt     DateTime?
+  endedAt        DateTime?
+  @@index([calleeId, status])
+}
