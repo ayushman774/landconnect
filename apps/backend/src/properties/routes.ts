@@ -45,7 +45,7 @@ function serialize(property: any) {
 
 const authenticate: RequestHandler = async (request, response, next) => {
   try {
-    const match = /^Bearer (\\S+)$/i.exec(request.header('authorization') ?? '');
+    const match = /^Bearer (\S+)$/i.exec(request.header('authorization') ?? '');
     const userId = match?.[1] ? await verifyAccessToken(match[1]) : null;
     if (!userId) {
       response.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Sign in to continue' } });
