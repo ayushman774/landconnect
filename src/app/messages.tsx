@@ -161,8 +161,12 @@ export default function MessagesScreen() {
           </Pressable>
         </View>
       ) : (
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}><Text style={styles.guestEyebrow}>YOUR INBOX</Text><Text style={styles.title}>Messages</Text></View>
+        <View style={styles.inboxHeader}>
+          <View style={styles.inboxHeading}>
+            <Text style={styles.inboxEyebrow}>YOUR INBOX</Text>
+            <Text style={styles.inboxTitle}>Messages</Text>
+            <Text style={styles.inboxSubtitle}>Stay connected with your property contacts</Text>
+          </View>
           <Pressable style={styles.headerAction} accessibilityRole="button" accessibilityLabel="Refresh conversations" onPress={() => void loadConversations()}>
             <Ionicons name="refresh-outline" size={21} color={green} />
           </Pressable>
@@ -208,22 +212,38 @@ export default function MessagesScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="Send message" disabled={busy || !draft.trim()} onPress={() => void submit()} style={[styles.send, (busy || !draft.trim()) && styles.sendDisabled]}>{busy ? <ActivityIndicator color="white" /> : <Ionicons name="arrow-up" size={23} color="#FFFFFF" />}</Pressable>
           </View>
         </View>
-      </> : <FlatList style={styles.list} data={conversations} keyExtractor={item => item.id} onRefresh={() => void loadConversations()} refreshing={false}
+      </> : <FlatList style={styles.list} contentContainerStyle={styles.conversationListContent} data={conversations} keyExtractor={item => item.id} onRefresh={() => void loadConversations()} refreshing={false}
         renderItem={({ item }) => {
           const peer = item.participants.find(p => p.userId !== user.id)?.user;
           return <Pressable style={styles.row} onPress={() => setActive(item)}>
             <View style={styles.avatar}><Text style={styles.avatarText}>{peer?.name?.slice(0, 1).toUpperCase() ?? '?'}</Text></View>
-            <View style={{ flex: 1 }}><Text style={styles.peer}>{peer?.name ?? 'Conversation'}</Text><Text style={styles.muted} numberOfLines={1}>{item.messages[0]?.body ?? 'Start chatting'}</Text></View>
-            {!!item.unreadCount && <View style={styles.badge}><Text style={styles.badgeText}>{item.unreadCount > 99 ? '99+' : item.unreadCount}</Text></View>}
-            <Text style={styles.arrow}>›</Text>
+            <View style={styles.conversationInfo}>
+              <Text style={styles.peer} numberOfLines={1}>{peer?.name ?? 'Conversation'}</Text>
+              <Text style={styles.conversationPreview} numberOfLines={2}>{item.messages[0]?.body ?? 'Start chatting'}</Text>
+            </View>
+            <View style={styles.conversationTrailing}>
+              {!!item.unreadCount && <View style={styles.badge}><Text style={styles.badgeText}>{item.unreadCount > 99 ? '99+' : item.unreadCount}</Text></View>}
+              <Ionicons name="chevron-forward" size={18} color="#96A9A0" />
+            </View>
           </Pressable>;
-        }} ListEmptyComponent={<Text style={styles.muted}>No conversations yet. Open a property on Home and contact its seller.</Text>} />}
+        }} ListEmptyComponent={<View style={styles.emptyInbox}><Ionicons name="chatbubbles-outline" size={36} color="#8BA99A" /><Text style={styles.emptyChatTitle}>No conversations yet</Text><Text style={styles.emptyInboxDescription}>Open a property listing and contact its seller to start chatting.</Text></View>} />}
     </View>
     </KeyboardAvoidingView>
   </SafeAreaView>;
 }
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F5F7F8' },
+  inboxHeader: { flexDirection: 'row', alignItems: 'center', minHeight: 125, paddingTop: 5, paddingBottom: 18, gap: 12 },
+  inboxHeading: { flex: 1, justifyContent: 'center' },
+  inboxEyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.7, color: '#77988B', marginBottom: 6 },
+  inboxTitle: { fontSize: 29, lineHeight: 36, fontWeight: '800', color: '#193B30', letterSpacing: -0.6, includeFontPadding: true },
+  inboxSubtitle: { fontSize: 12, color: '#7D8E87', marginTop: 5, lineHeight: 17 },
+  conversationListContent: { paddingTop: 4, paddingBottom: 22, flexGrow: 1 },
+  conversationInfo: { flex: 1, justifyContent: 'center', gap: 5 },
+  conversationPreview: { fontSize: 12, color: '#788B82', lineHeight: 18 },
+  conversationTrailing: { alignItems: 'center', justifyContent: 'center', gap: 9, minWidth: 22 },
+  emptyInbox: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 25, paddingBottom: 65 },
+  emptyInboxDescription: { fontSize: 13, color: '#7D8E87', lineHeight: 21, textAlign: 'center', marginTop: 9 },
   chatHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', marginHorizontal: -18, marginTop: -18, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E8EEEB', gap: 10 },
   backButton: { width: 32, height: 42, alignItems: 'center', justifyContent: 'center' },
   headerAvatar: { width: 43, height: 43, borderRadius: 22, backgroundColor: '#DCEFE6', alignItems: 'center', justifyContent: 'center' },
@@ -262,8 +282,8 @@ const styles = StyleSheet.create({
   back: { color: green, fontWeight: '700' }, refresh: { color: green, fontWeight: '700' },
   list: { flex: 1 }, muted: { color: '#65747D', fontSize: 13, marginTop: 5, lineHeight: 20 },
   error: { color: '#B3261E', marginBottom: 12 },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: 'white', padding: 15, borderRadius: 14, marginBottom: 10 },
-  avatar: { width: 43, height: 43, borderRadius: 22, backgroundColor: '#DDF0E8', alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', gap: 13, alignItems: 'center', backgroundColor: 'white', paddingHorizontal: 14, paddingVertical: 17, borderRadius: 18, marginBottom: 11, borderWidth: 1, borderColor: '#EDF1EE' },
+  avatar: { width: 49, height: 49, borderRadius: 25, backgroundColor: '#DDF0E8', alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: green, fontWeight: '800' }, peer: { fontSize: 16, color: '#17242A', fontWeight: '700' }, arrow: { color: green, fontSize: 24 },
   bubble: { maxWidth: '84%', paddingHorizontal: 14, paddingVertical: 11, borderRadius: 17, marginBottom: 12, elevation: 1 },
   own: { backgroundColor: green, alignSelf: 'flex-end', borderBottomRightRadius: 5 }, theirs: { backgroundColor: 'white', alignSelf: 'flex-start', borderBottomLeftRadius: 5 },
