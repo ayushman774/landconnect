@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/auth/auth-context';
-import { getConversations, getMessages, sendMessage, type Conversation, type Message } from '@/lib/messaging';
+import { getConversations, getMessages, markConversationRead, sendMessage, type Conversation, type Message } from '@/lib/messaging';
 
 const green = '#146B53';
 
@@ -22,7 +22,7 @@ export default function MessagesScreen() {
   }, [user]);
 
   const loadMessages = useCallback(async (id: string) => {
-    try { setMessages((await getMessages(id)).messages); setError(''); }
+    try { const result = await getMessages(id); setMessages(result.messages); await markConversationRead(id); setError(''); }
     catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not load messages'); }
   }, []);
 
@@ -48,7 +48,8 @@ export default function MessagesScreen() {
   if (!user) return <SafeAreaView style={styles.screen}><View style={styles.content}><Text style={styles.title}>Messages</Text><Text style={styles.muted}>Sign in to message buyers, sellers and brokers.</Text></View></SafeAreaView>;
 
   return <SafeAreaView style={styles.screen} edges={['top']}>
-    <View style={styles.content}>
+    <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+    <View style={styles.inner}>
       <View style={styles.header}>
         {active && <Pressable onPress={() => { setActive(null); void loadConversations(); }}><Text style={styles.back}>‹ Back</Text></Pressable>}
         <Text style={styles.title}>{active ? active.participants.find(p => p.userId !== user.id)?.user.name ?? 'Conversation' : 'Messages'}</Text>
@@ -72,14 +73,16 @@ export default function MessagesScreen() {
           return <Pressable style={styles.row} onPress={() => setActive(item)}>
             <View style={styles.avatar}><Text style={styles.avatarText}>{peer?.name?.slice(0, 1).toUpperCase() ?? '?'}</Text></View>
             <View style={{ flex: 1 }}><Text style={styles.peer}>{peer?.name ?? 'Conversation'}</Text><Text style={styles.muted} numberOfLines={1}>{item.messages[0]?.body ?? 'Start chatting'}</Text></View>
+            {!!item.unreadCount && <View style={styles.badge}><Text style={styles.badgeText}>{item.unreadCount > 99 ? '99+' : item.unreadCount}</Text></View>}
             <Text style={styles.arrow}>›</Text>
           </Pressable>;
         }} ListEmptyComponent={<Text style={styles.muted}>No conversations yet. Open a property on Home and contact its seller.</Text>} />}
     </View>
+    </KeyboardAvoidingView>
   </SafeAreaView>;
 }
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F5F7F8' }, content: { flex: 1, padding: 18 },
+  screen: { flex: 1, backgroundColor: '#F5F7F8' }, content: { flex: 1 }, inner: { flex: 1, padding: 18 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
   title: { flex: 1, fontSize: 23, fontWeight: '800', color: green },
   back: { color: green, fontWeight: '700' }, refresh: { color: green, fontWeight: '700' },
@@ -95,4 +98,6 @@ const styles = StyleSheet.create({
   input: { flex: 1, backgroundColor: 'white', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, maxHeight: 110, minHeight: 46, color: '#17242A' },
   send: { backgroundColor: green, borderRadius: 12, paddingHorizontal: 16, height: 46, justifyContent: 'center' },
   sendText: { color: 'white', fontWeight: '800' },
+  badge: { minWidth: 22, height: 22, borderRadius: 11, backgroundColor: '#D52A36', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
+  badgeText: { color: 'white', fontSize: 11, fontWeight: '800' },
 });
