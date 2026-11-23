@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Tabs, TabList, TabSlot, TabTrigger, type TabTriggerSlotProps } from 'expo-router/ui';
-import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/auth/auth-context';
 import { getConversations } from '@/lib/messaging';
@@ -8,18 +7,18 @@ import { getConversations } from '@/lib/messaging';
 type TabName = 'home' | 'explore' | 'list' | 'messages' | 'account';
 
 const items: { name: TabName; label: string; href: '/' | '/explore' | '/create-listing' | '/messages' | '/account'; icon: string }[] = [
-  { name: 'home', label: 'Home', href: '/', icon: 'house.fill' },
-  { name: 'explore', label: 'Explore', href: '/explore', icon: 'safari.fill' },
-  { name: 'list', label: 'List', href: '/create-listing', icon: 'plus.square.fill' },
-  { name: 'messages', label: 'Messages', href: '/messages', icon: 'message.fill' },
-  { name: 'account', label: 'Account', href: '/account', icon: 'person.crop.circle.fill' },
+  { name: 'home', label: 'Home', href: '/', icon: '⌂' },
+  { name: 'explore', label: 'Explore', href: '/explore', icon: '◎' },
+  { name: 'list', label: 'List', href: '/create-listing', icon: '⊞' },
+  { name: 'messages', label: 'Messages', href: '/messages', icon: '▤' },
+  { name: 'account', label: 'Account', href: '/account', icon: '♙' },
 ];
 
 function TabButton({ children, isFocused, ref: _ref, ...props }: TabTriggerSlotProps & { iconName: string; count?: number }) {
   const { iconName, count = 0, ...pressableProps } = props;
   return <Pressable {...pressableProps} style={styles.tab} accessibilityLabel={String(children) + (count ? ', ' + count + ' unread messages' : '')}>
     <View style={[styles.iconBox, isFocused && styles.selected]}>
-      <SymbolView name={iconName as never} size={23} tintColor={isFocused ? '#116B52' : '#667780'} />
+      <Text style={[styles.iconText, isFocused && styles.activeIcon]}>{iconName}</Text>
       {count > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text></View>}
     </View>
     <Text style={[styles.label, isFocused && styles.activeLabel]} numberOfLines={1}>{children}</Text>
@@ -59,4 +58,6 @@ const styles = StyleSheet.create({
   activeLabel: { color: '#116B52', fontWeight: '800' },
   badge: { position: 'absolute', right: -5, top: -5, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: '#D82F45', borderWidth: 2, borderColor: 'white' },
   badgeText: { color: 'white', fontSize: 9, fontWeight: '800' },
+  iconText: { fontSize: 26, lineHeight: 30, fontWeight: '700', color: '#667780', textAlign: 'center', includeFontPadding: false },
+  activeIcon: { color: '#116B52' },
 });
