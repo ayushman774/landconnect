@@ -30,6 +30,9 @@ export default function AppTabs() {
           <TabTrigger name="list" href="/create-listing" asChild>
             <TabButton>List</TabButton>
           </TabTrigger>
+          <TabTrigger name="messages" href="/messages" asChild>
+            <TabButton>Messages</TabButton>
+          </TabTrigger>
           <TabTrigger name="account" href="/account" asChild>
             <TabButton>Account</TabButton>
           </TabTrigger>
