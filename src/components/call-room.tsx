@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, PermissionsAndroid, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AudioSession, VideoView } from '@livekit/react-native';
 import { Room, RoomEvent, type RemoteParticipant, type TrackPublication, type VideoTrack } from 'livekit-client';
@@ -8,6 +8,9 @@ type Props = { call: Call; onClose: () => void };
 
 export default function CallRoom({ call, onClose }: Props) {
   const [room] = useState(() => new Room({ adaptiveStream: true, dynacast: true }));
+  // Parent callbacks change identity on re-render; keep the latest without reconnecting.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [connecting, setConnecting] = useState(true);
   const [error, setError] = useState('');
   const [muted, setMuted] = useState(false);
@@ -27,7 +30,7 @@ export default function CallRoom({ call, onClose }: Props) {
       const local = Array.from(room.localParticipant.videoTrackPublications.values()).find(pub => pub.track)?.track;
       setLocalVideo((local as VideoTrack | undefined) ?? null);
     };
-    const onDisconnect = () => { if (!disposed) onClose(); };
+    const onDisconnect = () => { if (!disposed) onCloseRef.current(); };
     room.on(RoomEvent.ParticipantConnected, sync);
     room.on(RoomEvent.ParticipantDisconnected, sync);
     room.on(RoomEvent.TrackSubscribed, sync);
@@ -66,7 +69,7 @@ export default function CallRoom({ call, onClose }: Props) {
       void room.disconnect();
       void AudioSession.stopAudioSession();
     };
-  }, [room, call.id, call.type, onClose]);
+  }, [room, call.id, call.type]);
 
   async function end() {
     try { await updateCall(call.id, 'end'); } catch { /* Call may already be ended. */ }
