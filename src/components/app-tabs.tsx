@@ -29,6 +29,7 @@ function TabButton({ children, isFocused, ref: _ref, ...props }: TabTriggerSlotP
 export default function AppTabs() {
   const { user } = useAuth();
   const [unread, setUnread] = useState(0);
+  const visibleItems = items.filter(item => item.name !== 'list' || (user?.role === 'SELLER' || user?.role === 'BROKER'));
 
   useEffect(() => {
     if (!user) { setUnread(0); return; }
@@ -42,7 +43,7 @@ export default function AppTabs() {
   return <Tabs>
     <TabSlot style={styles.slot} />
     <TabList style={styles.bar}>
-      {items.map(item => <TabTrigger key={item.name} name={item.name} href={item.href} asChild>
+      {visibleItems.map(item => <TabTrigger key={item.name} name={item.name} href={item.href} asChild>
         <TabButton iconName={item.icon} activeIconName={item.activeIcon} count={item.name === 'messages' ? unread : 0}>{item.label}</TabButton>
       </TabTrigger>)}
     </TabList>
