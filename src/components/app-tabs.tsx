@@ -1,9 +1,22 @@
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/auth/auth-context';
+import { getConversations } from '@/lib/messaging';
 import { NativeTabs } from 'expo-router/native-tabs';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
 export default function AppTabs() {
+  const { user } = useAuth();
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    if (!user) { setUnread(0); return; }
+    let alive = true;
+    const refresh = () => { void getConversations().then(result => { if (alive) setUnread(result.unreadCount); }).catch(() => {}); };
+    refresh();
+    const timer = setInterval(refresh, 5000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [user]);
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
 
@@ -33,6 +46,7 @@ export default function AppTabs() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="messages">
         <NativeTabs.Trigger.Label>Messages</NativeTabs.Trigger.Label>
+        {unread > 0 && <NativeTabs.Trigger.Badge>{unread > 99 ? '99+' : String(unread)}</NativeTabs.Trigger.Badge>}
         <NativeTabs.Trigger.Icon src={require("@/assets/images/tabIcons/explore.png")} renderingMode="template" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="account">
