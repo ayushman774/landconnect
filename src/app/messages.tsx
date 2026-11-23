@@ -146,11 +146,28 @@ export default function MessagesScreen() {
   return <SafeAreaView style={styles.screen} edges={['top']}>
     <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
     <View style={styles.inner}>
-      <View style={styles.header}>
-        {active && <Pressable onPress={() => { setActive(null); void loadConversations(); }}><Text style={styles.back}>‹ Back</Text></Pressable>}
-        <Text style={styles.title}>{active ? active.participants.find(p => p.userId !== user.id)?.user.name ?? 'Conversation' : 'Messages'}</Text>
-        <Pressable onPress={() => active ? void loadMessages(active.id) : void loadConversations()}><Text style={styles.refresh}>Refresh</Text></Pressable>
-      </View>
+      {active ? (
+        <View style={styles.chatHeader}>
+          <Pressable style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back to conversations" onPress={() => { setActive(null); void loadConversations(); }}>
+            <Ionicons name="chevron-back" size={25} color="#243A34" />
+          </Pressable>
+          <View style={styles.headerAvatar}><Text style={styles.headerAvatarText}>{(active.participants.find(p => p.userId !== user.id)?.user.name ?? 'C').slice(0, 1).toUpperCase()}</Text></View>
+          <View style={styles.headerDetails}>
+            <Text style={styles.chatName} numberOfLines={1}>{active.participants.find(p => p.userId !== user.id)?.user.name ?? 'Conversation'}</Text>
+            <Text style={styles.chatSubheading}>Property conversation</Text>
+          </View>
+          <Pressable style={styles.headerAction} accessibilityRole="button" accessibilityLabel="Refresh messages" onPress={() => void loadMessages(active.id)}>
+            <Ionicons name="refresh-outline" size={21} color={green} />
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}><Text style={styles.guestEyebrow}>YOUR INBOX</Text><Text style={styles.title}>Messages</Text></View>
+          <Pressable style={styles.headerAction} accessibilityRole="button" accessibilityLabel="Refresh conversations" onPress={() => void loadConversations()}>
+            <Ionicons name="refresh-outline" size={21} color={green} />
+          </Pressable>
+        </View>
+      )}
       {!!error && <Text style={styles.error}>{error}</Text>}
       {incoming && <View style={styles.callNotice}>
         <Text style={styles.callNoticeText}>{incoming.callerName ?? 'Someone'} is calling ({incoming.type === 'VIDEO' ? 'video' : 'audio'})</Text>
@@ -164,19 +181,32 @@ export default function MessagesScreen() {
         <Pressable style={styles.reject} onPress={() => void cancelCall()}><Text style={styles.callButtonText}>Cancel call</Text></Pressable>
       </View>}
       {active ? <>
-        <FlatList style={styles.list} data={messages} keyExtractor={item => item.id} renderItem={({ item }) =>
-          <View style={[styles.bubble, item.senderId === user.id ? styles.own : styles.theirs]}>
-            <Text style={[styles.body, item.senderId === user.id && styles.ownText]}>{item.body}</Text>
-            <Text style={[styles.time, item.senderId === user.id && styles.ownText]}>{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+        <FlatList style={styles.list} data={messages} keyExtractor={item => item.id}
+          contentContainerStyle={styles.messageListContent}
+          renderItem={({ item }) => {
+            const own = item.senderId === user.id;
+            return <View style={[styles.bubble, own ? styles.own : styles.theirs]}>
+              <Text style={[styles.body, own && styles.ownText]}>{item.body}</Text>
+              <View style={styles.bubbleFooter}>
+                <Text style={[styles.time, own && styles.ownTime]}>{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                {own && <Ionicons name="checkmark-done" size={13} color="#C9E6DC" />}
+              </View>
+            </View>;
+          }}
+          ListEmptyComponent={<View style={styles.emptyChat}><Ionicons name="chatbubble-ellipses-outline" size={36} color="#A1B5AD" /><Text style={styles.emptyChatTitle}>Start the conversation</Text><Text style={styles.muted}>Send a message to get things going.</Text></View>} />
+        <View style={styles.chatBottom}>
+          <View style={styles.callToolbar}>
+            <Pressable style={[styles.callAction, (busy || !!outgoing) && styles.disabledAction]} accessibilityRole="button" accessibilityLabel="Start audio call" disabled={busy || !!outgoing} onPress={() => void initiateCall('AUDIO')}>
+              <Ionicons name="call-outline" size={20} color={green} /><Text style={styles.callActionText}>Audio call</Text>
+            </Pressable>
+            <Pressable style={[styles.callAction, (busy || !!outgoing) && styles.disabledAction]} accessibilityRole="button" accessibilityLabel="Start video call" disabled={busy || !!outgoing} onPress={() => void initiateCall('VIDEO')}>
+              <Ionicons name="videocam-outline" size={21} color={green} /><Text style={styles.callActionText}>Video call</Text>
+            </Pressable>
           </View>
-        } ListEmptyComponent={<Text style={styles.muted}>No messages yet. Say hello!</Text>} />
-        <View style={styles.callButtons}>
-          <Pressable style={styles.accept} disabled={busy || !!outgoing} onPress={() => void initiateCall('AUDIO')}><Text style={styles.callButtonText}>Audio call</Text></Pressable>
-          <Pressable style={styles.accept} disabled={busy || !!outgoing} onPress={() => void initiateCall('VIDEO')}><Text style={styles.callButtonText}>Video call</Text></Pressable>
-        </View>
-        <View style={styles.composer}>
-          <TextInput style={styles.input} value={draft} onChangeText={setDraft} placeholder="Type a message..." multiline maxLength={2000} />
-          <Pressable disabled={busy || !draft.trim()} onPress={() => void submit()} style={styles.send}>{busy ? <ActivityIndicator color="white" /> : <Text style={styles.sendText}>Send</Text>}</Pressable>
+          <View style={styles.composer}>
+            <TextInput style={styles.input} value={draft} onChangeText={setDraft} placeholder="Write a message..." placeholderTextColor="#94A39D" multiline maxLength={2000} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Send message" disabled={busy || !draft.trim()} onPress={() => void submit()} style={[styles.send, (busy || !draft.trim()) && styles.sendDisabled]}>{busy ? <ActivityIndicator color="white" /> : <Ionicons name="arrow-up" size={23} color="#FFFFFF" />}</Pressable>
+          </View>
         </View>
       </> : <FlatList style={styles.list} data={conversations} keyExtractor={item => item.id} onRefresh={() => void loadConversations()} refreshing={false}
         renderItem={({ item }) => {
@@ -194,6 +224,25 @@ export default function MessagesScreen() {
 }
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F5F7F8' },
+  chatHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', marginHorizontal: -18, marginTop: -18, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E8EEEB', gap: 10 },
+  backButton: { width: 32, height: 42, alignItems: 'center', justifyContent: 'center' },
+  headerAvatar: { width: 43, height: 43, borderRadius: 22, backgroundColor: '#DCEFE6', alignItems: 'center', justifyContent: 'center' },
+  headerAvatarText: { fontSize: 18, fontWeight: '800', color: green },
+  headerDetails: { flex: 1, justifyContent: 'center' },
+  chatName: { fontSize: 17, fontWeight: '800', color: '#203A31' },
+  chatSubheading: { fontSize: 11, color: '#81948A', marginTop: 3 },
+  headerAction: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#EFF6F2', alignItems: 'center', justifyContent: 'center' },
+  messageListContent: { paddingTop: 22, paddingBottom: 16, flexGrow: 1 },
+  bubbleFooter: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: 4, marginTop: 7 },
+  ownTime: { color: '#C9E6DC' },
+  emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
+  emptyChatTitle: { fontSize: 17, fontWeight: '800', color: '#29483C', marginTop: 12 },
+  chatBottom: { backgroundColor: '#FFFFFF', marginHorizontal: -18, marginBottom: -18, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, borderTopWidth: 1, borderTopColor: '#E8EEEB' },
+  callToolbar: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginBottom: 12 },
+  callAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 17, height: 40, borderRadius: 20, backgroundColor: '#EAF5EF' },
+  callActionText: { color: green, fontSize: 13, fontWeight: '800' },
+  disabledAction: { opacity: 0.45 },
+  sendDisabled: { opacity: 0.5 },
   guestHeader: { paddingHorizontal: 24, paddingTop: 24 },
   guestEyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.8, color: '#73958B', marginBottom: 9 },
   guestTitle: { fontSize: 32, fontWeight: '800', color: '#172F2A', letterSpacing: -0.7 },
@@ -216,12 +265,12 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: 'white', padding: 15, borderRadius: 14, marginBottom: 10 },
   avatar: { width: 43, height: 43, borderRadius: 22, backgroundColor: '#DDF0E8', alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: green, fontWeight: '800' }, peer: { fontSize: 16, color: '#17242A', fontWeight: '700' }, arrow: { color: green, fontSize: 24 },
-  bubble: { maxWidth: '85%', padding: 12, borderRadius: 14, marginBottom: 10 },
-  own: { backgroundColor: green, alignSelf: 'flex-end' }, theirs: { backgroundColor: 'white', alignSelf: 'flex-start' },
-  body: { fontSize: 15, color: '#17242A' }, ownText: { color: 'white' }, time: { fontSize: 10, color: '#65747D', marginTop: 6, alignSelf: 'flex-end' },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingTop: 12 },
-  input: { flex: 1, backgroundColor: 'white', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, maxHeight: 110, minHeight: 46, color: '#17242A' },
-  send: { backgroundColor: green, borderRadius: 12, paddingHorizontal: 16, height: 46, justifyContent: 'center' },
+  bubble: { maxWidth: '84%', paddingHorizontal: 14, paddingVertical: 11, borderRadius: 17, marginBottom: 12, elevation: 1 },
+  own: { backgroundColor: green, alignSelf: 'flex-end', borderBottomRightRadius: 5 }, theirs: { backgroundColor: 'white', alignSelf: 'flex-start', borderBottomLeftRadius: 5 },
+  body: { fontSize: 14, lineHeight: 21, color: '#17242A' }, ownText: { color: 'white' }, time: { fontSize: 10, color: '#87968F' },
+  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+  input: { flex: 1, backgroundColor: '#F4F7F5', borderRadius: 22, paddingHorizontal: 17, paddingVertical: 11, maxHeight: 110, minHeight: 46, color: '#17242A', fontSize: 14, borderWidth: 1, borderColor: '#E7EEEA' },
+  send: { backgroundColor: green, borderRadius: 23, width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
   sendText: { color: 'white', fontWeight: '800' },
   badge: { minWidth: 22, height: 22, borderRadius: 11, backgroundColor: '#D52A36', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
   badgeText: { color: 'white', fontSize: 11, fontWeight: '800' },
