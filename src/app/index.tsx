@@ -1,3 +1,6 @@
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/auth/auth-context';
+import { startConversation } from '@/lib/messaging';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +13,9 @@ const categories: { label: string; value?: PropertyType }[] = [
 ];
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [contactError, setContactError] = useState('');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<PropertyType | undefined>();
   const [properties, setProperties] = useState<Listing[]>([]);
@@ -57,6 +63,8 @@ export default function HomeScreen() {
           <Text style={styles.muted}>Listed by {item.owner.name} · {item.owner.role}</Text>
           <View style={styles.priceRow}><Text style={styles.price}>{formatPrice(item.priceRupees)}</Text><Text style={styles.muted}>{item.areaSqFt.toLocaleString('en-IN')} sq ft</Text></View>
           <Text style={styles.description} numberOfLines={3}>{item.description}</Text>
+          {user?.id !== item.owner.id && <Pressable style={styles.contact} onPress={() => { if (!user) { router.navigate("/account"); return; } void startConversation(item.owner.id).then(() => router.navigate("/messages")).catch(error => setContactError(error instanceof Error ? error.message : "Unable to start conversation")); }}><Text style={styles.contactText}>{user ? "Message seller" : "Sign in to contact seller"}</Text></Pressable>}
+          {!!contactError && <Text style={styles.error}>{contactError}</Text>}
         </View>
       </View>}
       ListEmptyComponent={loading ? <ActivityIndicator color={green} style={{ marginTop: 30 }} /> : !error ? <Text style={styles.empty}>No published properties yet. Sellers can add a listing from the List tab.</Text> : undefined}
@@ -87,5 +95,7 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 },
   price: { color: green, fontSize: 20, fontWeight: '800' },
   description: { color: '#52616A', marginTop: 12, lineHeight: 19, fontSize: 13 },
+  contact: { backgroundColor: green, paddingVertical: 12, alignItems: 'center', borderRadius: 10, marginTop: 14 },
+  contactText: { color: 'white', fontWeight: '800' },
   empty: { color: '#65747D', textAlign: 'center', marginTop: 28, lineHeight: 22 }, error: { color: '#B3261E', marginBottom: 15 },
 });

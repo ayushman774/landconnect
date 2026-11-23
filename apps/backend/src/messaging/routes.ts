@@ -35,7 +35,15 @@ messagingRouter.get('/', async (_request, response, next) => {
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
-    response.json({ conversations });
+    const enriched = await Promise.all(conversations.map(async conversation => {
+      const participant = conversation.participants.find(p => p.userId === response.locals.user.id);
+      const unreadCount = await prisma.message.count({
+        where: { conversationId: conversation.id, senderId: { not: response.locals.user.id },
+          createdAt: { gt: participant?.lastReadAt ?? new Date(0) } },
+      });
+      return { ...conversation, unreadCount };
+    }));
+    response.json({ conversations: enriched, unreadCount: enriched.reduce((sum, item) => sum + item.unreadCount, 0) });
   } catch (error) { next(error); }
 });
 
@@ -97,5 +105,18 @@ messagingRouter.post('/:id/messages', async (request, response, next) => {
       data: { conversationId: id.data, senderId: response.locals.user.id, body: body.data.body },
     });
     response.status(201).json({ message });
+  } catch (error) { next(error); }
+});
+
+messagingRouter.post('/:id/read', async (request, response, next) => {
+  const id = uuid.safeParse(request.params.id);
+  if (!id.success) { response.status(400).json({ error: { code: 'VALIDATION_ERROR' } }); return; }
+  try {
+    const result = await prisma.participant.updateMany({
+      where: { conversationId: id.data, userId: response.locals.user.id },
+      data: { lastReadAt: new Date() },
+    });
+    if (!result.count) { response.status(404).json({ error: { code: 'NOT_FOUND' } }); return; }
+    response.json({ unreadCount: 0 });
   } catch (error) { next(error); }
 });
