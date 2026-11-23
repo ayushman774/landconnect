@@ -20,6 +20,7 @@ export default function CallRoom({ call, onClose }: Props) {
   const [peerConnected, setPeerConnected] = useState(false);
 
   useEffect(() => {
+    console.info('[LandConnect CallRoom] effect started', call.id);
     let disposed = false;
     const sync = () => {
       if (disposed) return;
@@ -30,7 +31,10 @@ export default function CallRoom({ call, onClose }: Props) {
       const local = Array.from(room.localParticipant.videoTrackPublications.values()).find(pub => pub.track)?.track;
       setLocalVideo((local as VideoTrack | undefined) ?? null);
     };
-    const onDisconnect = () => { if (!disposed) onCloseRef.current(); };
+    const onDisconnect = () => {
+      console.info('[LandConnect CallRoom] RoomEvent.Disconnected', call.id, 'disposed:', disposed);
+      if (!disposed) onCloseRef.current();
+    };
     room.on(RoomEvent.ParticipantConnected, sync);
     room.on(RoomEvent.ParticipantDisconnected, sync);
     room.on(RoomEvent.TrackSubscribed, sync);
@@ -52,18 +56,22 @@ export default function CallRoom({ call, onClose }: Props) {
         const credentials = await getCallConnection(call.id);
         if (disposed) return;
         await AudioSession.startAudioSession();
+        console.info('[LandConnect CallRoom] connecting to LiveKit', call.id);
         await room.connect(credentials.url, credentials.token);
+        console.info('[LandConnect CallRoom] LiveKit connect resolved', call.id, 'disposed:', disposed);
         if (disposed) return;
         await room.localParticipant.setMicrophoneEnabled(true);
         if (call.type === 'VIDEO') await room.localParticipant.setCameraEnabled(true);
         sync();
         setConnecting(false);
       } catch (caught) {
+        console.warn('[LandConnect CallRoom] connect error', call.id, caught instanceof Error ? caught.message : String(caught));
         if (!disposed) { setError(caught instanceof Error ? caught.message : 'Could not connect to call'); setConnecting(false); }
       }
     };
     void connect();
     return () => {
+      console.warn('[LandConnect CallRoom] EFFECT CLEANUP: disconnect requested', call.id);
       disposed = true;
       room.removeAllListeners();
       void room.disconnect();
