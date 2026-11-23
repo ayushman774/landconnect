@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { registerGlobals } from '@livekit/react-native';
+import CallRoom from '@/components/call-room';
+import { getCall, getIncomingCalls, startCall, updateCall, type Call, type CallType } from '@/lib/calls';
+
+registerGlobals();
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/auth/auth-context';
@@ -12,6 +17,9 @@ export default function MessagesScreen() {
   const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
+  const [incoming, setIncoming] = useState<Call | null>(null);
+  const [outgoing, setOutgoing] = useState<Call | null>(null);
+  const [connectedCall, setConnectedCall] = useState<Call | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,6 +42,61 @@ export default function MessagesScreen() {
     return () => clearInterval(interval);
   }, [active, user?.id, loadMessages]);
 
+  useEffect(() => {
+    if (!user) { setIncoming(null); setOutgoing(null); setConnectedCall(null); return; }
+    let alive = true;
+    const poll = async () => {
+      try {
+        const calls = await getIncomingCalls();
+        if (alive) setIncoming(calls[0] ?? null);
+        if (outgoing) {
+          const current = await getCall(outgoing.id);
+          if (!alive) return;
+          if (current.status === 'ACCEPTED') { setConnectedCall(current); setOutgoing(null); }
+          else if (current.status !== 'RINGING') setOutgoing(null);
+        }
+        if (connectedCall) {
+          const current = await getCall(connectedCall.id);
+          if (alive && current.status !== 'ACCEPTED') setConnectedCall(null);
+        }
+      } catch { /* Retry while backend is temporarily unavailable. */ }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 2500);
+    return () => { alive = false; clearInterval(timer); };
+  }, [user?.id, outgoing?.id, connectedCall?.id]);
+
+  async function initiateCall(type: CallType) {
+    if (!active || busy) return;
+    setBusy(true);
+    try { setOutgoing(await startCall(active.id, type)); setError(''); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not start call'); }
+    finally { setBusy(false); }
+  }
+
+  async function respondToCall(accept: boolean) {
+    if (!incoming) return;
+    const call = incoming;
+    setIncoming(null);
+    try {
+      const updated = await updateCall(call.id, accept ? 'accept' : 'reject');
+      if (accept) setConnectedCall(updated);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not respond to call'); }
+  }
+
+  async function cancelCall() {
+    if (!outgoing) return;
+    const call = outgoing;
+    setOutgoing(null);
+    try { await updateCall(call.id, 'end'); } catch { /* Call may already have ended. */ }
+  }
+
+  async function closeCall() {
+    const call = connectedCall;
+    setConnectedCall(null);
+    if (call) try { await updateCall(call.id, 'end'); } catch { /* Already ended. */ }
+  }
+
   async function submit() {
     if (!active || !draft.trim() || busy) return;
     setBusy(true);
@@ -47,6 +110,8 @@ export default function MessagesScreen() {
 
   if (!user) return <SafeAreaView style={styles.screen}><View style={styles.content}><Text style={styles.title}>Messages</Text><Text style={styles.muted}>Sign in to message buyers, sellers and brokers.</Text></View></SafeAreaView>;
 
+  if (connectedCall) return <SafeAreaView style={{ flex: 1, backgroundColor: '#0B1920' }}><CallRoom call={connectedCall} onClose={() => void closeCall()} /></SafeAreaView>;
+
   return <SafeAreaView style={styles.screen} edges={['top']}>
     <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
     <View style={styles.inner}>
@@ -56,6 +121,17 @@ export default function MessagesScreen() {
         <Pressable onPress={() => active ? void loadMessages(active.id) : void loadConversations()}><Text style={styles.refresh}>Refresh</Text></Pressable>
       </View>
       {!!error && <Text style={styles.error}>{error}</Text>}
+      {incoming && <View style={styles.callNotice}>
+        <Text style={styles.callNoticeText}>{incoming.callerName ?? 'Someone'} is calling ({incoming.type === 'VIDEO' ? 'video' : 'audio'})</Text>
+        <View style={styles.callButtons}>
+          <Pressable style={styles.accept} onPress={() => void respondToCall(true)}><Text style={styles.callButtonText}>Accept</Text></Pressable>
+          <Pressable style={styles.reject} onPress={() => void respondToCall(false)}><Text style={styles.callButtonText}>Reject</Text></Pressable>
+        </View>
+      </View>}
+      {outgoing && <View style={styles.callNotice}>
+        <Text style={styles.callNoticeText}>Calling… waiting for an answer</Text>
+        <Pressable style={styles.reject} onPress={() => void cancelCall()}><Text style={styles.callButtonText}>Cancel call</Text></Pressable>
+      </View>}
       {active ? <>
         <FlatList style={styles.list} data={messages} keyExtractor={item => item.id} renderItem={({ item }) =>
           <View style={[styles.bubble, item.senderId === user.id ? styles.own : styles.theirs]}>
@@ -63,6 +139,10 @@ export default function MessagesScreen() {
             <Text style={[styles.time, item.senderId === user.id && styles.ownText]}>{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
           </View>
         } ListEmptyComponent={<Text style={styles.muted}>No messages yet. Say hello!</Text>} />
+        <View style={styles.callButtons}>
+          <Pressable style={styles.accept} disabled={busy || !!outgoing} onPress={() => void initiateCall('AUDIO')}><Text style={styles.callButtonText}>Audio call</Text></Pressable>
+          <Pressable style={styles.accept} disabled={busy || !!outgoing} onPress={() => void initiateCall('VIDEO')}><Text style={styles.callButtonText}>Video call</Text></Pressable>
+        </View>
         <View style={styles.composer}>
           <TextInput style={styles.input} value={draft} onChangeText={setDraft} placeholder="Type a message..." multiline maxLength={2000} />
           <Pressable disabled={busy || !draft.trim()} onPress={() => void submit()} style={styles.send}>{busy ? <ActivityIndicator color="white" /> : <Text style={styles.sendText}>Send</Text>}</Pressable>
@@ -100,4 +180,10 @@ const styles = StyleSheet.create({
   sendText: { color: 'white', fontWeight: '800' },
   badge: { minWidth: 22, height: 22, borderRadius: 11, backgroundColor: '#D52A36', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
   badgeText: { color: 'white', fontSize: 11, fontWeight: '800' },
+  callNotice: { backgroundColor: '#E4F3EB', borderRadius: 14, padding: 14, marginBottom: 12, gap: 10 },
+  callNoticeText: { color: green, fontWeight: '800' },
+  callButtons: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  accept: { backgroundColor: green, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12 },
+  reject: { backgroundColor: '#C63143', paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12 },
+  callButtonText: { color: 'white', fontWeight: '800' },
 });
