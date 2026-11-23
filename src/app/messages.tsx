@@ -26,13 +26,13 @@ export default function MessagesScreen() {
     catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not load messages'); }
   }, []);
 
-  useEffect(() => { void loadConversations(); }, [loadConversations]);
+  useEffect(() => { setActive(null); setMessages([]); setConversations([]); setDraft(''); void loadConversations(); }, [user?.id, loadConversations]);
   useEffect(() => {
-    if (!active) return;
+    if (!active || !user) return;
     void loadMessages(active.id);
     const interval = setInterval(() => void loadMessages(active.id), 3000);
     return () => clearInterval(interval);
-  }, [active, loadMessages]);
+  }, [active, user?.id, loadMessages]);
 
   async function submit() {
     if (!active || !draft.trim() || busy) return;
