@@ -49,7 +49,7 @@ export default function AccountScreen() {
 
         <View style={styles.profileCard}>
           <View style={styles.profileAvatar}>
-            <Text style={styles.profileInitials}>{user.name.trim().split(/\\s+/).slice(0, 2).map(part => part.charAt(0).toUpperCase()).join('') || '?'}</Text>
+            <Text style={styles.profileInitials}>{user.name.trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0).toUpperCase()).join('') || '?'}</Text>
           </View>
           <Text style={styles.profileName}>{user.name}</Text>
           <View style={styles.rolePill}>
