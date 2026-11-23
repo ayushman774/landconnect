@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { registerGlobals } from '@livekit/react-native';
+import { useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import CallRoom from '@/components/call-room';
 import { getCall, getIncomingCalls, startCall, updateCall, type Call, type CallType } from '@/lib/calls';
 
@@ -13,6 +15,7 @@ const green = '#146B53';
 
 export default function MessagesScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -108,7 +111,35 @@ export default function MessagesScreen() {
     finally { setBusy(false); }
   }
 
-  if (!user) return <SafeAreaView style={styles.screen}><View style={styles.content}><Text style={styles.title}>Messages</Text><Text style={styles.muted}>Sign in to message buyers, sellers and brokers.</Text></View></SafeAreaView>;
+  if (!user) return (
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <View style={styles.guestHeader}>
+        <Text style={styles.guestEyebrow}>YOUR INBOX</Text>
+        <Text style={styles.guestTitle}>Messages</Text>
+        <Text style={styles.guestSubtitle}>All your property conversations, in one place.</Text>
+      </View>
+      <View style={styles.guestCenter}>
+        <View style={styles.guestIllustration}>
+          <View style={styles.guestIconHalo}>
+            <Ionicons name="chatbubbles" size={48} color={green} />
+          </View>
+          <View style={styles.guestSmallIcon}>
+            <Ionicons name="home-outline" size={20} color={green} />
+          </View>
+        </View>
+        <Text style={styles.guestHeading}>Let's get the conversation started</Text>
+        <Text style={styles.guestDescription}>Sign in to connect with buyers, sellers and brokers, ask about properties, and keep every conversation together.</Text>
+        <Pressable style={styles.guestButton} onPress={() => router.push('/account')} accessibilityRole="button" accessibilityLabel="Sign in to start messaging">
+          <Text style={styles.guestButtonText}>Sign in to message</Text>
+          <Ionicons name="arrow-forward" size={19} color="#FFFFFF" />
+        </Pressable>
+        <View style={styles.guestPrivacy}>
+          <Ionicons name="lock-closed-outline" size={14} color="#77868B" />
+          <Text style={styles.guestPrivacyText}>Your conversations stay in your account</Text>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
 
   if (connectedCall) return <SafeAreaView style={{ flex: 1, backgroundColor: '#0B1920' }}><CallRoom call={connectedCall} onClose={() => void closeCall()} /></SafeAreaView>;
 
@@ -162,7 +193,21 @@ export default function MessagesScreen() {
   </SafeAreaView>;
 }
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F5F7F8' }, content: { flex: 1 }, inner: { flex: 1, padding: 18 },
+  screen: { flex: 1, backgroundColor: '#F5F7F8' },
+  guestHeader: { paddingHorizontal: 24, paddingTop: 24 },
+  guestEyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.8, color: '#73958B', marginBottom: 9 },
+  guestTitle: { fontSize: 32, fontWeight: '800', color: '#172F2A', letterSpacing: -0.7 },
+  guestSubtitle: { fontSize: 14, color: '#71827F', marginTop: 8, lineHeight: 21 },
+  guestCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28, paddingBottom: 45 },
+  guestIllustration: { width: 164, height: 154, alignItems: 'center', justifyContent: 'center', marginBottom: 23 },
+  guestIconHalo: { width: 130, height: 130, borderRadius: 65, backgroundColor: '#E2F1E9', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D2E8DE' },
+  guestSmallIcon: { position: 'absolute', right: 4, bottom: 12, width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E1EBE6', elevation: 3 },
+  guestHeading: { fontSize: 23, fontWeight: '800', color: '#19342D', textAlign: 'center', lineHeight: 30, maxWidth: 300, letterSpacing: -0.5 },
+  guestDescription: { fontSize: 14, lineHeight: 23, color: '#71827F', textAlign: 'center', marginTop: 13, maxWidth: 310 },
+  guestButton: { marginTop: 28, backgroundColor: green, borderRadius: 15, minHeight: 54, width: '100%', maxWidth: 310, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 11 },
+  guestButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  guestPrivacy: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 18 },
+  guestPrivacyText: { fontSize: 11, color: '#77868B' }, content: { flex: 1 }, inner: { flex: 1, padding: 18 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
   title: { flex: 1, fontSize: 23, fontWeight: '800', color: green },
   back: { color: green, fontWeight: '700' }, refresh: { color: green, fontWeight: '700' },
