@@ -66,6 +66,14 @@ test('conversation participants can send messages; outsiders cannot read them', 
   const received = await call('/api/conversations/' + id + '/messages', 'GET', bob.token);
   assert.equal(received.status, 200);
   assert.equal(received.data.messages[0].body, 'Hello Bob');
+  const unread = await call('/api/conversations', 'GET', bob.token);
+  assert.equal(unread.status, 200);
+  assert.equal(unread.data.unreadCount, 1);
+  assert.equal(unread.data.conversations[0].unreadCount, 1);
+  const read = await call('/api/conversations/' + id + '/read', 'POST', bob.token);
+  assert.equal(read.status, 200);
+  assert.equal((await call('/api/conversations', 'GET', bob.token)).data.unreadCount, 0);
+  assert.equal((await call('/api/conversations/' + id + '/read', 'POST', stranger.token)).status, 404);
   const inbox = await call('/api/conversations', 'GET', bob.token);
   assert.equal(inbox.status, 200);
   assert.ok(inbox.data.conversations.some((item: { id: string }) => item.id === id));
