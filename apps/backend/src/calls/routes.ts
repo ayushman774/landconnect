@@ -60,6 +60,22 @@ callsRouter.get('/:id', async (request, response, next) => {
   } catch (error) { next(error); }
 });
 
+callsRouter.post('/:id/token', async (request, response, next) => {
+  const id = idSchema.safeParse(request.params.id);
+  if (!id.success) { response.status(400).json({ error: { code: 'VALIDATION_ERROR' } }); return; }
+  try {
+    const userId: string = response.locals.userId;
+    const call = await prisma.call.findUnique({ where: { id: id.data } });
+    if (!call || ![call.callerId, call.calleeId].includes(userId)) { response.status(404).json({ error: { code: 'NOT_FOUND' } }); return; }
+    if (call.status !== 'ACCEPTED') { response.status(409).json({ error: { code: 'CALL_NOT_ACCEPTED' } }); return; }
+    const { LIVEKIT_URL: url, LIVEKIT_API_KEY: key, LIVEKIT_API_SECRET: secret } = process.env;
+    if (!url || !key || !secret) { response.status(503).json({ error: { code: 'CALLING_NOT_CONFIGURED' } }); return; }
+    const token = new AccessToken(key, secret, { identity: userId, ttl: '15m' });
+    token.addGrant({ roomJoin: true, room: call.roomName, canPublish: true, canSubscribe: true, roomCreate: false });
+    response.json({ url, token: await token.toJwt(), call: publicCall(call) });
+  } catch (error) { next(error); }
+});
+
 callsRouter.post('/:id/:action', async (request, response, next) => {
   const id = idSchema.safeParse(request.params.id);
   const action = z.enum(['accept', 'reject', 'end']).safeParse(request.params.action);
@@ -75,21 +91,5 @@ callsRouter.post('/:id/:action', async (request, response, next) => {
     if (!updated.count) { response.status(409).json({ error: { code: 'CALL_NOT_ACTIVE_OR_NOT_ALLOWED' } }); return; }
     const call = await prisma.call.findUniqueOrThrow({ where: { id: id.data } });
     response.json({ call: publicCall(call) });
-  } catch (error) { next(error); }
-});
-
-callsRouter.post('/:id/token', async (request, response, next) => {
-  const id = idSchema.safeParse(request.params.id);
-  if (!id.success) { response.status(400).json({ error: { code: 'VALIDATION_ERROR' } }); return; }
-  try {
-    const userId: string = response.locals.userId;
-    const call = await prisma.call.findUnique({ where: { id: id.data } });
-    if (!call || ![call.callerId, call.calleeId].includes(userId)) { response.status(404).json({ error: { code: 'NOT_FOUND' } }); return; }
-    if (call.status !== 'ACCEPTED') { response.status(409).json({ error: { code: 'CALL_NOT_ACCEPTED' } }); return; }
-    const { LIVEKIT_URL: url, LIVEKIT_API_KEY: key, LIVEKIT_API_SECRET: secret } = process.env;
-    if (!url || !key || !secret) { response.status(503).json({ error: { code: 'CALLING_NOT_CONFIGURED' } }); return; }
-    const token = new AccessToken(key, secret, { identity: userId, ttl: '15m' });
-    token.addGrant({ roomJoin: true, room: call.roomName, canPublish: true, canSubscribe: true, roomCreate: false });
-    response.json({ url, token: await token.toJwt(), call: publicCall(call) });
   } catch (error) { next(error); }
 });
