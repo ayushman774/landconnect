@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerGlobals } from '@livekit/react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -31,6 +31,8 @@ function MessagesSession() {
   const [outgoing, setOutgoing] = useState<Call | null>(null);
   const [connectedCall, setConnectedCall] = useState<Call | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pendingEndId, setPendingEndId] = useState<string | null>(null);
+  const endingRef = useRef(false);
   const [error, setError] = useState('');
 
   const loadConversations = useCallback(async () => {
@@ -81,7 +83,7 @@ function MessagesSession() {
     const poll = async () => {
       try {
         const calls = await getIncomingCalls();
-        if (alive) setIncoming(calls[0] ?? null);
+        if (alive) setIncoming(calls.find(call => call.id !== pendingEndId) ?? null);
         if (outgoingId) {
           const current = await getCall(outgoingId);
           if (!alive) return;
@@ -97,10 +99,30 @@ function MessagesSession() {
     void poll();
     const timer = setInterval(() => void poll(), 2500);
     return () => { alive = false; clearInterval(timer); };
-  }, [userId, outgoingId, connectedCallId]);
+  }, [userId, outgoingId, connectedCallId, pendingEndId]);
+
+  useEffect(() => {
+    if (!userId || !pendingEndId) return;
+    let alive = true;
+    const retry = async () => {
+      if (endingRef.current) return;
+      endingRef.current = true;
+      try {
+        await updateCall(pendingEndId, 'end');
+        if (alive) setPendingEndId(null);
+      } catch {
+        // Keep the termination pending until the server confirms it.
+      } finally {
+        endingRef.current = false;
+      }
+    };
+    void retry();
+    const timer = setInterval(() => void retry(), 2500);
+    return () => { alive = false; clearInterval(timer); };
+  }, [userId, pendingEndId]);
 
   async function initiateCall(type: CallType) {
-    if (!active || busy) return;
+    if (!active || busy || pendingEndId) return;
     setBusy(true);
     try { setOutgoing(await startCall(active.id, type)); setError(''); }
     catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not start call'); }
@@ -108,7 +130,7 @@ function MessagesSession() {
   }
 
   async function respondToCall(accept: boolean) {
-    if (!incoming) return;
+    if (!incoming || pendingEndId) return;
     const call = incoming;
     setIncoming(null);
     try {
@@ -121,13 +143,13 @@ function MessagesSession() {
     if (!outgoing) return;
     const call = outgoing;
     setOutgoing(null);
-    try { await updateCall(call.id, 'end'); } catch { /* Call may already have ended. */ }
+    setPendingEndId(call.id);
   }
 
   async function closeCall() {
     const call = connectedCall;
     setConnectedCall(null);
-    if (call) try { await updateCall(call.id, 'end'); } catch { /* Already ended. */ }
+    if (call) setPendingEndId(call.id);
   }
 
   async function submit() {
@@ -203,7 +225,8 @@ function MessagesSession() {
         </View>
       )}
       {!!error && <Text style={styles.error}>{error}</Text>}
-      {incoming && <View style={styles.callNotice}>
+      {!!pendingEndId && <Text style={styles.muted}>Finishing previous call. Retrying if connection is unavailable.</Text>}
+      {incoming && !pendingEndId && <View style={styles.callNotice}>
         <Text style={styles.callNoticeText}>{incoming.callerName ?? 'Someone'} is calling ({incoming.type === 'VIDEO' ? 'video' : 'audio'})</Text>
         <View style={styles.callButtons}>
           <Pressable style={styles.accept} onPress={() => void respondToCall(true)}><Text style={styles.callButtonText}>Accept</Text></Pressable>
@@ -230,10 +253,10 @@ function MessagesSession() {
           ListEmptyComponent={<View style={styles.emptyChat}><Ionicons name="chatbubble-ellipses-outline" size={36} color="#A1B5AD" /><Text style={styles.emptyChatTitle}>Start the conversation</Text><Text style={styles.muted}>Send a message to get things going.</Text></View>} />
         <View style={styles.chatBottom}>
           <View style={styles.callToolbar}>
-            <Pressable style={[styles.callAction, (busy || !!outgoing) && styles.disabledAction]} accessibilityRole="button" accessibilityLabel="Start audio call" disabled={busy || !!outgoing} onPress={() => void initiateCall('AUDIO')}>
+            <Pressable style={[styles.callAction, (busy || !!outgoing || !!pendingEndId) && styles.disabledAction]} accessibilityRole="button" accessibilityLabel="Start audio call" disabled={busy || !!outgoing || !!pendingEndId} onPress={() => void initiateCall('AUDIO')}>
               <Ionicons name="call-outline" size={20} color={green} /><Text style={styles.callActionText}>Audio call</Text>
             </Pressable>
-            <Pressable style={[styles.callAction, (busy || !!outgoing) && styles.disabledAction]} accessibilityRole="button" accessibilityLabel="Start video call" disabled={busy || !!outgoing} onPress={() => void initiateCall('VIDEO')}>
+            <Pressable style={[styles.callAction, (busy || !!outgoing || !!pendingEndId) && styles.disabledAction]} accessibilityRole="button" accessibilityLabel="Start video call" disabled={busy || !!outgoing || !!pendingEndId} onPress={() => void initiateCall('VIDEO')}>
               <Ionicons name="videocam-outline" size={21} color={green} /><Text style={styles.callActionText}>Video call</Text>
             </Pressable>
           </View>
