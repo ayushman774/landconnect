@@ -28,23 +28,24 @@ function TabButton({ children, isFocused, ref: _ref, ...props }: TabTriggerSlotP
 
 export default function AppTabs() {
   const { user } = useAuth();
-  const [unread, setUnread] = useState(0);
+  const userId = user?.id;
+  const [unread, setUnread] = useState<{ userId: string; count: number } | null>(null);
   const visibleItems = items.filter(item => item.name !== 'list' || (user?.role === 'SELLER' || user?.role === 'BROKER'));
 
   useEffect(() => {
-    if (!user) { setUnread(0); return; }
+    if (!userId) return;
     let alive = true;
-    const refresh = () => { void getConversations().then(result => { if (alive) setUnread(result.unreadCount); }).catch(() => {}); };
+    const refresh = () => { void getConversations().then(result => { if (alive) setUnread({ userId, count: result.unreadCount }); }).catch(() => {}); };
     refresh();
     const interval = setInterval(refresh, 5000);
     return () => { alive = false; clearInterval(interval); };
-  }, [user?.id]);
+  }, [userId]);
 
   return <Tabs>
     <TabSlot style={styles.slot} />
     <TabList style={styles.bar}>
       {visibleItems.map(item => <TabTrigger key={item.name} name={item.name} href={item.href} asChild>
-        <TabButton iconName={item.icon} activeIconName={item.activeIcon} count={item.name === 'messages' ? unread : 0}>{item.label}</TabButton>
+        <TabButton iconName={item.icon} activeIconName={item.activeIcon} count={item.name === 'messages' && unread && unread.userId === userId ? unread.count : 0}>{item.label}</TabButton>
       </TabTrigger>)}
     </TabList>
   </Tabs>;
