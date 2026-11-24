@@ -44,13 +44,33 @@ function MessagesSession() {
     catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not load messages'); }
   }, []);
 
-  useEffect(() => { void loadConversations(); }, [loadConversations]);
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    void getConversations().then(result => {
+      if (alive) { setConversations(result.conversations); setError(''); }
+    }).catch(caught => {
+      if (alive) setError(caught instanceof Error ? caught.message : 'Could not load conversations');
+    });
+    return () => { alive = false; };
+  }, [userId]);
   useEffect(() => {
     if (!active || !userId) return;
-    void loadMessages(active.id);
-    const interval = setInterval(() => void loadMessages(active.id), 3000);
-    return () => clearInterval(interval);
-  }, [active, userId, loadMessages]);
+    let alive = true;
+    const refresh = () => {
+      void getMessages(active.id).then(async result => {
+        if (!alive) return;
+        setMessages(result.messages);
+        await markConversationRead(active.id);
+        if (alive) setError('');
+      }).catch(caught => {
+        if (alive) setError(caught instanceof Error ? caught.message : 'Could not load messages');
+      });
+    };
+    refresh();
+    const interval = setInterval(refresh, 3000);
+    return () => { alive = false; clearInterval(interval); };
+  }, [active, userId]);
 
   const outgoingId = outgoing?.id;
   const connectedCallId = connectedCall?.id;
