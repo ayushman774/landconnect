@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, PermissionsAndroid, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AudioSession, VideoView } from '@livekit/react-native';
-import { Room, RoomEvent, type RemoteParticipant, type TrackPublication, type VideoTrack } from 'livekit-client';
+import { Room, RoomEvent, type VideoTrack } from 'livekit-client';
 import { getCallConnection, updateCall, type Call } from '@/lib/calls';
 
 type Props = { call: Call; onClose: () => void };
@@ -10,7 +10,7 @@ export default function CallRoom({ call, onClose }: Props) {
   const [room] = useState(() => new Room({ adaptiveStream: true, dynacast: true }));
   // Parent callbacks change identity on re-render; keep the latest without reconnecting.
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   const [connecting, setConnecting] = useState(true);
   const [error, setError] = useState('');
   const [muted, setMuted] = useState(false);
