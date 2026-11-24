@@ -5,16 +5,23 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import CallRoom from '@/components/call-room';
 import { getCall, getIncomingCalls, startCall, updateCall, type Call, type CallType } from '@/lib/calls';
 
-registerGlobals();
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/auth/auth-context';
 import { getConversations, getMessages, markConversationRead, sendMessage, type Conversation, type Message } from '@/lib/messaging';
 
+registerGlobals();
+
 const green = '#146B53';
 
 export default function MessagesScreen() {
   const { user } = useAuth();
+  return <MessagesSession key={user?.id ?? 'guest'} />;
+}
+
+function MessagesSession() {
+  const { user } = useAuth();
+  const userId = user?.id;
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [active, setActive] = useState<Conversation | null>(null);
@@ -27,39 +34,42 @@ export default function MessagesScreen() {
   const [error, setError] = useState('');
 
   const loadConversations = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
     try { setConversations((await getConversations()).conversations); setError(''); }
     catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not load conversations'); }
-  }, [user]);
+  }, [userId]);
 
   const loadMessages = useCallback(async (id: string) => {
     try { const result = await getMessages(id); setMessages(result.messages); await markConversationRead(id); setError(''); }
     catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not load messages'); }
   }, []);
 
-  useEffect(() => { setActive(null); setMessages([]); setConversations([]); setDraft(''); void loadConversations(); }, [user?.id, loadConversations]);
+  useEffect(() => { void loadConversations(); }, [loadConversations]);
   useEffect(() => {
-    if (!active || !user) return;
+    if (!active || !userId) return;
     void loadMessages(active.id);
     const interval = setInterval(() => void loadMessages(active.id), 3000);
     return () => clearInterval(interval);
-  }, [active, user?.id, loadMessages]);
+  }, [active, userId, loadMessages]);
+
+  const outgoingId = outgoing?.id;
+  const connectedCallId = connectedCall?.id;
 
   useEffect(() => {
-    if (!user) { setIncoming(null); setOutgoing(null); setConnectedCall(null); return; }
+    if (!userId) return;
     let alive = true;
     const poll = async () => {
       try {
         const calls = await getIncomingCalls();
         if (alive) setIncoming(calls[0] ?? null);
-        if (outgoing) {
-          const current = await getCall(outgoing.id);
+        if (outgoingId) {
+          const current = await getCall(outgoingId);
           if (!alive) return;
           if (current.status === 'ACCEPTED') { setConnectedCall(current); setOutgoing(null); }
           else if (current.status !== 'RINGING') setOutgoing(null);
         }
-        if (connectedCall) {
-          const current = await getCall(connectedCall.id);
+        if (connectedCallId) {
+          const current = await getCall(connectedCallId);
           if (alive && current.status !== 'ACCEPTED') setConnectedCall(null);
         }
       } catch { /* Retry while backend is temporarily unavailable. */ }
@@ -67,7 +77,7 @@ export default function MessagesScreen() {
     void poll();
     const timer = setInterval(() => void poll(), 2500);
     return () => { alive = false; clearInterval(timer); };
-  }, [user?.id, outgoing?.id, connectedCall?.id]);
+  }, [userId, outgoingId, connectedCallId]);
 
   async function initiateCall(type: CallType) {
     if (!active || busy) return;
@@ -127,7 +137,7 @@ export default function MessagesScreen() {
             <Ionicons name="home-outline" size={20} color={green} />
           </View>
         </View>
-        <Text style={styles.guestHeading}>Let's get the conversation started</Text>
+        <Text style={styles.guestHeading}>Let&apos;s get the conversation started</Text>
         <Text style={styles.guestDescription}>Sign in to connect with buyers, sellers and brokers, ask about properties, and keep every conversation together.</Text>
         <Pressable style={styles.guestButton} onPress={() => router.push('/account')} accessibilityRole="button" accessibilityLabel="Sign in to start messaging">
           <Text style={styles.guestButtonText}>Sign in to message</Text>
