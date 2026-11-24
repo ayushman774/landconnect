@@ -88,7 +88,15 @@ callsRouter.post('/:id/:action', async (request, response, next) => {
     const data = action.data === 'accept' ? { status: 'ACCEPTED' as const, answeredAt: new Date() }
       : { status: action.data === 'reject' ? 'REJECTED' as const : 'ENDED' as const, endedAt: new Date() };
     const updated = await prisma.call.updateMany({ where, data });
-    if (!updated.count) { response.status(409).json({ error: { code: 'CALL_NOT_ACTIVE_OR_NOT_ALLOWED' } }); return; }
+    if (!updated.count) {
+      if (action.data === 'end') {
+        const existing = await prisma.call.findFirst({
+          where: { id: id.data, OR: [{ callerId: userId }, { calleeId: userId }], status: { in: ['ENDED', 'REJECTED'] } }
+        });
+        if (existing) { response.json({ call: publicCall(existing) }); return; }
+      }
+      response.status(409).json({ error: { code: 'CALL_NOT_ACTIVE_OR_NOT_ALLOWED' } }); return;
+    }
     const call = await prisma.call.findUniqueOrThrow({ where: { id: id.data } });
     response.json({ call: publicCall(call) });
   } catch (error) { next(error); }
